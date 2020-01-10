@@ -5,13 +5,16 @@
 #include <unistd.h>
 #include "audio.h"
 
+static volatile uint_fast8_t running = 1;
+static FILE *f;
+
 int main(int argc, char *argv[])
 {
 	SDL_AudioDeviceID dev;
 
-	if(argc != 2 || argv[1][0] != '-')
+	if(argc != 2)
 	{
-		printf("cat file.pgbs | %s -\n", argv[0]);
+		printf("%s FILE\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -20,6 +23,9 @@ int main(int argc, char *argv[])
 		printf("SDL failure: %s\n", SDL_GetError());
 		return EXIT_FAILURE;
 	}
+
+	f = fopen(argv[1], "rb");
+	assert(f != NULL);
 
 	{
 		SDL_AudioSpec want, have;
@@ -39,18 +45,24 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 
+		uint8_t tma;
+		uint8_t tac;
 
-		audio_write(0xff06, 0);
-		audio_write(0xff07, 0b00000000);
+		fread(&tma, 1, 1, f);
+		fread(&tac, 1, 1, f);
+		audio_write(0xff06, tma);
+		audio_write(0xff07, tac);
+
 		audio_init();
 		SDL_PauseAudioDevice(dev, 0);
 	}
 
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
-	while(1);
+	while(running);
 
 	SDL_Quit();
+	fclose(f);
 	puts("Finished");
 
 	return EXIT_SUCCESS;
@@ -58,22 +70,26 @@ int main(int argc, char *argv[])
 
 void process_cpu(void)
 {
+	static int timeout = 0;
+	int ret;
+
 	uint8_t instr;
 	printf("process ");
-	while(read(STDIN_FILENO, &instr, 1) == 1)
+	timeout++;
+
+	while((ret = fread(&instr, 1, 1, f)) == 1)
 	{
-		printf("%#04x ", instr);
 		if((instr & (1 << 7)) == 0)
 		{
-			printf("SET ");
 			// SET
 			uint16_t address = 0;
 			uint8_t val;
 
-			read(STDIN_FILENO, &val, 1);
+			fread(&val, 1, 1, f);
 			/* Instruction contains address. */
 			address = instr + 0xFF06;
 
+			printf("SET %#06x %#04x\n", address, val);
 			audio_write(address, val);
 		}
 		else
@@ -81,8 +97,17 @@ void process_cpu(void)
 			// RET
 			// Pause for required length given tma tac.
 			printf("RET\n");
+			timeout = 0;
+
 			return;
 		}
-
 	}
+
+	if(ret == 0)
+		printf("EOF\n");
+	else if(ret > 1)
+		printf("Read too many bytes\n");
+
+	if(timeout == 20)
+		running = 0;
 }
