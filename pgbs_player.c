@@ -24,8 +24,13 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	f = fopen(argv[1], "rb");
-	assert(f != NULL);
+	if(strcmp(argv[1], "-") == 0)
+		f = stdin;
+	else
+	{
+		f = fopen(argv[1], "rb");
+		assert(f != NULL);
+	}
 
 	{
 		SDL_AudioSpec want, have;
@@ -48,8 +53,8 @@ int main(int argc, char *argv[])
 		uint8_t tma;
 		uint8_t tac;
 
-		fread(&tma, 1, 1, f);
-		fread(&tac, 1, 1, f);
+		assert(fread(&tma, 1, 1, f));
+		assert(fread(&tac, 1, 1, f));
 		audio_write(0xff06, tma);
 		audio_write(0xff07, tac);
 
