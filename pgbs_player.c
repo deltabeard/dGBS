@@ -34,14 +34,12 @@ int main(int argc, char *argv[])
 
 	{
 		SDL_AudioSpec want, have;
-
 		want.freq = AUDIO_SAMPLE_RATE;
 		want.format   = AUDIO_F32SYS,
-		want.channels = 2;
+		     want.channels = 2;
 		want.samples = 1024;
 		want.callback = audio_callback;
 		want.userdata = NULL;
-
 		printf("Audio driver: %s\n", SDL_GetAudioDeviceName(0, 0));
 
 		if((dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0)) == 0)
@@ -52,24 +50,22 @@ int main(int argc, char *argv[])
 
 		uint8_t tma;
 		uint8_t tac;
-
 		assert(fread(&tma, 1, 1, f));
 		assert(fread(&tac, 1, 1, f));
 		audio_write(0xff06, tma);
 		audio_write(0xff07, tac);
-
 		audio_init();
 		SDL_PauseAudioDevice(dev, 0);
 	}
 
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
+
 	while(running);
 
 	SDL_Quit();
 	fclose(f);
 	puts("Finished");
-
 	return EXIT_SUCCESS;
 }
 
@@ -77,7 +73,6 @@ void process_cpu(void)
 {
 	static int timeout = 0;
 	int ret;
-
 	uint8_t instr;
 	printf("process ");
 	timeout++;
@@ -89,11 +84,9 @@ void process_cpu(void)
 			// SET
 			uint16_t address = 0;
 			uint8_t val;
-
 			fread(&val, 1, 1, f);
 			/* Instruction contains address. */
 			address = instr + 0xFF06;
-
 			printf("SET %#06x %#04x\n", address, val);
 			audio_write(address, val);
 		}
@@ -103,7 +96,6 @@ void process_cpu(void)
 			// Pause for required length given tma tac.
 			printf("RET\n");
 			timeout = 0;
-
 			return;
 		}
 	}
