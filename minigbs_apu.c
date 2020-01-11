@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "audio.h"
+#include "minigbs_apu.h"
 
 #define ENABLE_HIPASS 1
 
@@ -87,6 +87,7 @@ static struct chan
 	uint8_t sample;
 } chans[4];
 
+static void (*process_cpu)(void) = NULL;
 static unsigned int nsamples;
 static float       *samples;
 static float       *sample_ptr;
@@ -97,7 +98,7 @@ static float hipass(struct chan *c, float sample)
 {
 #if ENABLE_HIPASS
 	float out    = sample - c->capacitor;
-	c->capacitor = sample - out * 0.996;
+	c->capacitor = sample - out * 0.996f;
 	return out;
 #else
 	return sample;
@@ -164,11 +165,9 @@ static bool update_freq(struct chan *c, float *pos)
 		c->freq_counter = 0.0f;
 		return true;
 	}
-	else
-	{
-		*pos = c->freq_inc;
-		return false;
-	}
+
+	*pos = c->freq_inc;
+	return false;
 }
 
 static void update_sweep(struct chan *c)
@@ -392,7 +391,8 @@ void audio_callback(void *restrict const userdata,
 {
 	(void)userdata;
 	/* Optimisation: len = len / sizeof(float) */
-	len >>= 2;
+	len = len / sizeof(float);
+	//len >>= 2;
 
 	do
 	{
@@ -621,7 +621,7 @@ void audio_write(const uint16_t addr, const uint8_t val)
 	}
 }
 
-void audio_init(void)
+void audio_init(void (*cpu_func)(void))
 {
 	/* Initialise channels and samples. */
 	memset(chans, 0, sizeof(chans));
@@ -651,6 +651,8 @@ void audio_init(void)
 		for(uint_fast8_t i = 0; i < sizeof(wave_init); ++i)
 			audio_write(0xFF30 + i, wave_init[i]);
 	}
+
+	process_cpu = cpu_func;
 	audio_update_rate();
 }
 

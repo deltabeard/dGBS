@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include "pgbs_player.h"
 
 #define AUDIO_SAMPLE_RATE 48000.0f
 
@@ -22,7 +21,7 @@ void audio_write(const uint16_t addr, const uint8_t val);
 /**
  * Initialise audio driver.
  */
-void audio_init(void);
+void audio_init(void (*process_cpu)(void));
 
 /**
  * Frees memory used by audio driver.
