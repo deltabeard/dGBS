@@ -1,3 +1,4 @@
+CFLAGS += -fsanitize=address -fsanitize=undefined
 LDLIBS += -lm
 
 SOUND ?= SDL2

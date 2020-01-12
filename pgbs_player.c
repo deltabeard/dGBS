@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 	uint8_t tac;
 	assert(fread(&tma, 1, 1, f));
 	assert(fread(&tac, 1, 1, f));
-	audio_write(0xff06, tma);
-	audio_write(0xff07, tac);
+	audio_write(0x06, tma);
+	audio_write(0x07, tac);
 	audio_init(process_cpu);
 
 #ifdef SOUND_SDL2
@@ -106,10 +106,13 @@ void process_cpu(void)
 		{
 			// SET
 			/* Instruction is also address. */
-			uint16_t address = instr + 0xFF06;
+			uint16_t address = instr;
 			uint8_t val;
+
 			fread(&val, 1, 1, f);
-			printf("SET %#06x %#04x\n", address, val);
+			printf("SET %#06x %#04x\n", address + 0xFF00, val);
+			assert(address <= 0x3F);
+
 			audio_write(address, val);
 		}
 		else

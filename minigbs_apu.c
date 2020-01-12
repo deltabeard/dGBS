@@ -14,7 +14,7 @@
 #define VERTICAL_SYNC (DMG_CLOCK_FREQ / SCREEN_REFRESH_CYCLES)
 
 #define AUDIO_MEM_SIZE (0xFF3F - 0xFF06 + 1)
-#define AUDIO_ADDR_COMPENSATION 0xFF06
+#define AUDIO_ADDR_COMPENSATION 0x06
 
 #define MAX(a, b) ({ a > b ? a : b; })
 #define MIN(a, b) ({ a <= b ? a : b; })
@@ -22,7 +22,7 @@
 /**
  * Memory holding audio registers between 0xFF06 and 0xFF3F inclusive.
  */
-static uint8_t audio_mem[AUDIO_MEM_SIZE];
+static uint8_t audio_mem[AUDIO_MEM_SIZE] = { 0 };
 
 struct chan_len_ctr
 {
@@ -114,10 +114,10 @@ static void set_note_freq(struct chan *c, const float freq)
 static void chan_enable(const unsigned int i, const bool enable)
 {
 	chans[i].enabled = enable;
-	uint8_t val = (audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] & 0x80) |
+	uint8_t val = (audio_mem[0x26 - AUDIO_ADDR_COMPENSATION] & 0x80) |
 	              (chans[3].enabled << 3) | (chans[2].enabled << 2) |
 	              (chans[1].enabled << 1) | (chans[0].enabled << 0);
-	audio_mem[0xFF26 - AUDIO_ADDR_COMPENSATION] = val;
+	audio_mem[0x26 - AUDIO_ADDR_COMPENSATION] = val;
 }
 
 static void update_env(struct chan *c)
@@ -251,7 +251,7 @@ static void update_square(const bool ch2)
 static uint8_t wave_sample(const unsigned int pos, const unsigned int volume)
 {
 	uint8_t sample =
-	        audio_mem[(0xFF30 + pos / 2) - AUDIO_ADDR_COMPENSATION];
+	        audio_mem[(0x30 + pos / 2) - AUDIO_ADDR_COMPENSATION];
 
 	if(pos & 1)
 		sample &= 0xF;
@@ -417,8 +417,8 @@ void audio_callback(void *restrict const userdata,
 static void audio_update_rate(void)
 {
 	float audio_rate = VERTICAL_SYNC;
-	const uint8_t tma = audio_mem[0xff06 - AUDIO_ADDR_COMPENSATION];
-	const uint8_t tac = audio_mem[0xff07 - AUDIO_ADDR_COMPENSATION];
+	const uint8_t tma = audio_mem[0x06 - AUDIO_ADDR_COMPENSATION];
+	const uint8_t tac = audio_mem[0x07 - AUDIO_ADDR_COMPENSATION];
 
 	if(tac & 0x04)
 	{
@@ -443,7 +443,7 @@ static void chan_trigger(int i)
 	// volume envelope
 	{
 		uint8_t val =
-		        audio_mem[(0xFF12 + (i * 5)) - AUDIO_ADDR_COMPENSATION];
+		        audio_mem[(0x12 + (i * 5)) - AUDIO_ADDR_COMPENSATION];
 		c->env.step = val & 0x07;
 		c->env.up   = val & 0x08;
 		c->env.inc  = c->env.step ? (64.0f / (float)c->env.step) /
@@ -455,7 +455,7 @@ static void chan_trigger(int i)
 	// freq sweep
 	if(i == 0)
 	{
-		uint8_t val = audio_mem[0xFF10 - AUDIO_ADDR_COMPENSATION];
+		uint8_t val = audio_mem[0x10 - AUDIO_ADDR_COMPENSATION];
 		c->sweep.freq  = c->freq;
 		c->sweep.rate  = (val >> 4) & 0x07;
 		c->sweep.up    = !(val & 0x08);
@@ -491,7 +491,7 @@ static void chan_trigger(int i)
  *		This is not checked in this function.
  * \return	Byte at address.
  */
-uint8_t audio_read(const uint16_t addr)
+uint8_t audio_read(const uint8_t addr)
 {
 	static uint8_t ortab[] = { 0x80, 0x3f, 0x00, 0xff, 0xbf, 0xff,
 	                           0x3f, 0x00, 0xff, 0xbf, 0x7f, 0xff,
@@ -499,12 +499,12 @@ uint8_t audio_read(const uint16_t addr)
 	                           0x00, 0xbf, 0x00, 0x00, 0x70
 	                         };
 
-	if(addr > 0xFF26)
+	if(addr > 0x26)
 		return audio_mem[addr - AUDIO_ADDR_COMPENSATION];
-	else if(addr >= 0xFF10)
+	else if(addr >= 0x10)
 	{
 		return audio_mem[addr - AUDIO_ADDR_COMPENSATION] |
-		       ortab[addr - 0xFF10];
+		       ortab[addr - 0x10];
 	}
 
 	return audio_mem[addr - AUDIO_ADDR_COMPENSATION];
@@ -512,26 +512,26 @@ uint8_t audio_read(const uint16_t addr)
 
 /**
  * Write audio register.
- * \param addr	Address of audio register. Must be 0xFF06 <= addr <= 0xFF3F.
+ * \param addr	Address of audio register. Must be 0x06 <= addr <= 0x3F.
  *		This is not checked in this function.
  * \param val	Byte to write at address.
  */
-void audio_write(const uint16_t addr, const uint8_t val)
+void audio_write(const uint8_t addr, const uint8_t val)
 {
 	/* Find sound channel corresponding to register address. */
-	int i					  = (addr - 0xFF10) / 5;
+	int i					  = (addr - 0x10) / 5;
 	audio_mem[addr - AUDIO_ADDR_COMPENSATION] = val;
 
 	switch(addr)
 	{
-	case 0xFF06:
-	case 0xFF07:
+	case 0x06:
+	case 0x07:
 		audio_update_rate();
 		break;
 
-	case 0xFF12:
-	case 0xFF17:
-	case 0xFF21:
+	case 0x12:
+	case 0x17:
+	case 0x21:
 		chans[i].volume_init = val >> 4;
 		chans[i].powered     = (val >> 3) != 0;
 
@@ -554,13 +554,13 @@ void audio_write(const uint16_t addr, const uint8_t val)
 		chans[i].env.step = val & 0x07;
 		break;
 
-	case 0xFF1C:
+	case 0x1C:
 		chans[i].volume = chans[i].volume_init = (val >> 5) & 0x03;
 		break;
 
-	case 0xFF11:
-	case 0xFF16:
-	case 0xFF20:
+	case 0x11:
+	case 0x16:
+	case 0x20:
 	{
 		const uint8_t duty_lookup[] = { 0x10, 0x30, 0x3C, 0xCF };
 		chans[i].len.load           = val & 0x3f;
@@ -568,30 +568,30 @@ void audio_write(const uint16_t addr, const uint8_t val)
 		break;
 	}
 
-	case 0xFF1B:
+	case 0x1B:
 		chans[i].len.load = val;
 		break;
 
-	case 0xFF13:
-	case 0xFF18:
-	case 0xFF1D:
+	case 0x13:
+	case 0x18:
+	case 0x1D:
 		chans[i].freq &= 0xFF00;
 		chans[i].freq |= val;
 		break;
 
-	case 0xFF1A:
+	case 0x1A:
 		chans[i].powered = (val & 0x80) != 0;
 		chan_enable(i, val & 0x80);
 		break;
 
-	case 0xFF14:
-	case 0xFF19:
-	case 0xFF1E:
+	case 0x14:
+	case 0x19:
+	case 0x1E:
 		chans[i].freq &= 0x00FF;
 		chans[i].freq |= ((val & 0x07) << 8);
 
 	/* Intentional fall-through. */
-	case 0xFF23:
+	case 0x23:
 		chans[i].len.enabled = val & 0x40;
 
 		if(val & 0x80)
@@ -599,18 +599,18 @@ void audio_write(const uint16_t addr, const uint8_t val)
 
 		break;
 
-	case 0xFF22:
+	case 0x22:
 		chans[3].freq      = val >> 4;
 		chans[3].lfsr_wide = !(val & 0x08);
 		chans[3].lfsr_div  = val & 0x07;
 		break;
 
-	case 0xFF24:
+	case 0x24:
 		vol_l = ((val >> 4) & 0x07) / 7.0f;
 		vol_r = (val & 0x07) / 7.0f;
 		break;
 
-	case 0xFF25:
+	case 0x25:
 		for(uint_fast8_t i = 0; i < 4; ++i)
 		{
 			chans[i].on_left  = (val >> (4 + i)) & 1;
@@ -638,7 +638,7 @@ void audio_init(void (*cpu_func)(void))
 		                            };
 
 		for(uint_fast8_t i = 0; i < sizeof(regs_init); ++i)
-			audio_write(0xFF10 + i, regs_init[i]);
+			audio_write(0x10 + i, regs_init[i]);
 	}
 	/* Initialise Wave Pattern RAM. */
 	{
@@ -649,7 +649,7 @@ void audio_init(void (*cpu_func)(void))
 		                            };
 
 		for(uint_fast8_t i = 0; i < sizeof(wave_init); ++i)
-			audio_write(0xFF30 + i, wave_init[i]);
+			audio_write(0x30 + i, wave_init[i]);
 	}
 
 	process_cpu = cpu_func;
