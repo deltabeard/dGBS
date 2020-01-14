@@ -1,4 +1,3 @@
-CFLAGS += -fsanitize=address -fsanitize=undefined
 LDLIBS += -lm
 
 SOUND ?= SDL2
@@ -14,7 +13,7 @@ endif
 
 .PHONY: check
 all: check pgbs_player
-pgbs_player: pgbs_player.c minigbs_apu.c
+pgbs_player: pgbs_player.c minigb_apu.c
 check:
 ifneq ($(SOUND),SDL2)
 	$(info Compiling without audio playback.)

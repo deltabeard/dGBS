@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <SDL2/SDL.h>
 #include <unistd.h>
-#include "minigbs_apu.h"
+#include "minigb_apu.h"
 
 static volatile uint_fast8_t running = 1;
 static FILE *f;
@@ -39,9 +39,9 @@ int main(int argc, char *argv[])
 	uint8_t tac;
 	assert(fread(&tma, 1, 1, f));
 	assert(fread(&tac, 1, 1, f));
-	audio_write(0x06, tma);
-	audio_write(0x07, tac);
 	audio_init(process_cpu);
+	uint_fast16_t samples = set_tma_tac(tma, tac);
+	printf("samples: %ld\n", samples);
 
 #ifdef SOUND_SDL2
 	{
@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 			.freq = AUDIO_SAMPLE_RATE,
 			.format = AUDIO_F32SYS,
 			.channels = 2,
-			.samples = 1024,
+			.samples = samples,
 			.callback = audio_callback,
 			.userdata = NULL
 		};
@@ -98,7 +98,6 @@ int main(int argc, char *argv[])
 	fclose(wav_out);
 #endif
 
-	audio_deinit();
 	fclose(f);
 
 	return EXIT_SUCCESS;
@@ -109,20 +108,18 @@ void process_cpu(void)
 	int ret;
 	uint8_t instr;
 
-	puts("Beat");
-
 	while((ret = fread(&instr, 1, 1, f)) == 1)
 	{
 		if((instr & (1 << 7)) == 0)
 		{
 			// SET
 			/* Instruction is also address. */
-			uint16_t address = instr;
+			uint16_t address = instr + 0xFF00;
 			uint8_t val;
 
 			fread(&val, 1, 1, f);
-			printf("SET %#06x %#04x\n", address + 0xFF00, val);
-			assert(address <= 0x3F);
+			printf("SET %#06x %#04x\n", address, val);
+			assert(instr <= 0x3F);
 
 			audio_write(address, val);
 		}
