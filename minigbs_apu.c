@@ -217,7 +217,7 @@ static void update_square(const bool ch2)
 		update_len(c);
 
 		if(!c->enabled)
-			return;
+			continue;
 
 		update_env(c);
 

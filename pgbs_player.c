@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	uint8_t tac;
 	assert(fread(&tma, 1, 1, f));
 	assert(fread(&tac, 1, 1, f));
-	audio_init(process_cpu);
+	audio_init();
 	uint_fast16_t samples = set_tma_tac(tma, tac);
 	printf("samples: %ld\n", samples);
 
@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 
 	while(running)
 	{
+		process_cpu();
 #ifdef SOUND_NONE
 		/* Compiling with no sound driver means we call audio_callback
 		 * ourselves manuals. */
@@ -89,6 +90,8 @@ int main(int argc, char *argv[])
 		int len = 1024;
 		audio_callback(NULL, stream, len);
 		fwrite(stream, 1, len, wav_out);
+#else
+		usleep(16 * 1000);
 #endif
 	}
 
