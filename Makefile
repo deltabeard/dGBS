@@ -5,6 +5,9 @@ SOUND ?= SDL2
 ifeq ($(SOUND),SDL2)
 	CFLAGS += $(shell sdl2-config --cflags) -D SOUND_SDL2
 	LDLIBS += $(shell sdl2-config --libs)
+else ifeq ($(SOUND),FILE)
+	CFLAGS += $(shell sdl2-config --cflags) -D SOUND_FILE
+	LDLIBS += $(shell sdl2-config --libs)
 else
 	CFLAGS += -D SOUND_NONE
 endif

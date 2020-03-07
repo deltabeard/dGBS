@@ -72,6 +72,10 @@ int main(int argc, char *argv[])
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
 
+#ifdef SOUND_FILE
+	FILE *wav_out = fopen("out.raw", "w");
+#endif
+
 	while(running)
 	{
 #ifdef SOUND_NONE
@@ -80,11 +84,18 @@ int main(int argc, char *argv[])
 		static uint8_t stream[1024];
 		int len = 1024;
 		audio_callback(NULL, stream, len);
+#elif defined(SOUND_FILE)
+		static uint8_t stream[1024];
+		int len = 1024;
+		audio_callback(NULL, stream, len);
+		fwrite(stream, 1, len, wav_out);
 #endif
 	}
 
 #ifdef SOUND_SDL2
 	SDL_Quit();
+#elif defined(SOUND_FILE)
+	fclose(wav_out);
 #endif
 
 	audio_deinit();
