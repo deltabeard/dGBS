@@ -1,44 +1,65 @@
+#include <assert.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
-#include <SDL2/SDL.h>
 #include <unistd.h>
+
+#ifdef SOUND_SDL2
+#include <SDL2/SDL.h>
+#endif
+
 #include "minigbs_apu.h"
 
+#define STREAM_SIZE 4096
+
 static volatile uint_fast8_t running = 1;
-static FILE *f;
+static FILE *f = NULL;
 
 void process_cpu(void);
 
 int main(int argc, char *argv[])
 {
+	int ret = EXIT_FAILURE;
+
 	if(argc != 2)
 	{
-		printf("%s FILE\n", argv[0]);
-		return EXIT_FAILURE;
+		fprintf(stderr, "%s FILE\n", argv[0]);
+		goto err;
 	}
 
 #ifdef SOUND_SDL2
 	if(SDL_Init(SDL_INIT_AUDIO) < 0)
 	{
-		printf("SDL failure: %s\n", SDL_GetError());
-		return EXIT_FAILURE;
+		fprintf(stderr, "SDL failure: %s\n", SDL_GetError());
+		goto err;
 	}
 #endif
 
 	if(strcmp(argv[1], "-") == 0)
+	{
 		f = stdin;
+	}
 	else
 	{
 		f = fopen(argv[1], "rb");
-		assert(f != NULL);
+		if(f == NULL)
+		{
+			const char *errstr = strerror(errno);
+			fprintf(stderr, "Unable to open input file: %s\n",
+				errstr);
+			goto err;
+		}
 	}
 
 	// TODO: Use proper header format.
 	uint8_t tma;
 	uint8_t tac;
-	assert(fread(&tma, 1, 1, f));
-	assert(fread(&tac, 1, 1, f));
+	if(fread(&tma, 1, sizeof(tma), f) != sizeof(tma) ||
+		fread(&tac, 1, 1, f) != sizeof(tac))
+	{
+		fprintf(stderr, "Unable to read timing information.\n");
+		goto err;
+	}
 	audio_write(0x06, tma);
 	audio_write(0x07, tac);
 	audio_init(process_cpu);
@@ -50,45 +71,50 @@ int main(int argc, char *argv[])
 			.freq = AUDIO_SAMPLE_RATE,
 			.format = AUDIO_F32SYS,
 			.channels = 2,
-			.samples = 1024,
+			.samples = STREAM_SIZE,
 			.callback = audio_callback,
 			.userdata = NULL
 		};
 
-		printf("Audio driver: %s\n", SDL_GetAudioDeviceName(0, 0));
+		fprintf(stdout, "Audio driver: %s\n", SDL_GetAudioDeviceName(0, 0));
 
 		if((dev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0)) == 0)
 		{
-			printf("SDL could not open audio device: %s\n",
+			fprintf(stderr, "SDL could not open audio device: %s\n",
 				SDL_GetError());
-			fclose(f);
-			exit(EXIT_FAILURE);
+			goto err;
 		}
 
 		SDL_PauseAudioDevice(dev, 0);
 	}
 #endif
 
-	setbuf(stdin, NULL);
-	setbuf(stdout, NULL);
+	fflush(stdout);
 
 #ifdef SOUND_FILE
-	FILE *wav_out = fopen("out.raw", "w");
+	FILE *wav_out = fopen("out.raw", "wb");
 #endif
 
 	while(running)
 	{
 #ifdef SOUND_NONE
 		/* Compiling with no sound driver means we call audio_callback
-		 * ourselves manuals. */
-		static uint8_t stream[1024];
-		int len = 1024;
-		audio_callback(NULL, stream, len);
+		 * ourselves manually. */
+		static uint8_t stream[STREAM_SIZE];
+		audio_callback(NULL, stream, sizeof(stream));
 #elif defined(SOUND_FILE)
-		static uint8_t stream[1024];
-		int len = 1024;
-		audio_callback(NULL, stream, len);
-		fwrite(stream, 1, len, wav_out);
+		static uint8_t stream[STREAM_SIZE];
+		audio_callback(NULL, stream, sizeof(stream));
+		fwrite(stream, 1, sizeof(stream), wav_out);
+#elif defined(SOUND_SDL2)
+		SDL_Delay(20);
+		if(SDL_QuitRequested())
+		{
+			fprintf(stdout, "Stopping playback.\n");
+			break;
+		}
+#else
+#error "No audio output defined"
 #endif
 	}
 
@@ -99,9 +125,12 @@ int main(int argc, char *argv[])
 #endif
 
 	audio_deinit();
-	fclose(f);
+	ret = EXIT_SUCCESS;
+err:
+	if(f != NULL)
+		fclose(f);
 
-	return EXIT_SUCCESS;
+	return ret;
 }
 
 void process_cpu(void)

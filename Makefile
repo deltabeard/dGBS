@@ -1,21 +1,20 @@
-CFLAGS += -fsanitize=address -fsanitize=undefined
-LDLIBS += -lm
+ifdef DEBUG
+	CFLAGS := -fsanitize=address,undefined -O0 -g3
+else
+	CFLAGS := -O2 -g1
+endif
 
-SOUND ?= SDL2
+SOUND := SDL2
 ifeq ($(SOUND),SDL2)
-	CFLAGS += $(shell sdl2-config --cflags) -D SOUND_SDL2
-	LDLIBS += $(shell sdl2-config --libs)
+	CFLAGS += -D SOUND_SDL2
 else ifeq ($(SOUND),FILE)
-	CFLAGS += $(shell sdl2-config --cflags) -D SOUND_FILE
-	LDLIBS += $(shell sdl2-config --libs)
+	CFLAGS += -D SOUND_FILE
 else
 	CFLAGS += -D SOUND_NONE
 endif
 
-.PHONY: check
-all: check pgbs_player
-pgbs_player: pgbs_player.c minigbs_apu.c
-check:
-ifneq ($(SOUND),SDL2)
-	$(info Compiling without audio playback.)
-endif
+override LDLIBS += $(shell sdl2-config --libs) -lm
+override CFLAGS += $(shell sdl2-config --cflags) -std=c99
+
+all: pgbs_player
+pgbs_player: pgbs_player.o minigbs_apu.o
