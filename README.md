@@ -1,6 +1,6 @@
-# dsGBS
+# dGBS
 
-Decompiled Single-track Game Boy Sound.
+Decompiled Game Boy Sound.
 
 Plays Game Boy audio using decompiled instructions that manipulate the audio registers of the Game Boy APU only.
 
@@ -13,5 +13,5 @@ Requires minigbs from https://github.com/deltabeard/MiniGBS/tree/decoded
 minigbs /run/media/mahyar/WD/Games/ROMs/GBS/pokeprism.gbs 1 600
 
 # Play dgbs file.
-pgbs_player dgbs
+dgbs_player dgbs
 ```

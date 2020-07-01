@@ -14,7 +14,7 @@ else
 endif
 
 override LDLIBS += $(shell sdl2-config --libs) -lm
-override CFLAGS += $(shell sdl2-config --cflags) -std=c99
+override CFLAGS += $(shell sdl2-config --cflags) -std=c99 -pedantic
 
-all: pgbs_player
-pgbs_player: pgbs_player.o minigbs_apu.o
+all: dgbs_player
+dgbs_player: dgbs_player.o minigbs_apu.o

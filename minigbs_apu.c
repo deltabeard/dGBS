@@ -38,8 +38,8 @@
 #define AUDIO_MEM_SIZE (0xFF3F - 0xFF06 + 1)
 #define AUDIO_ADDR_COMPENSATION 0x06
 
-#define MAX(a, b) ({ a > b ? a : b; })
-#define MIN(a, b) ({ a <= b ? a : b; })
+#define MAX(a, b) (a > b ? a : b)
+#define MIN(a, b) (a <= b ? a : b)
 
 /**
  * Memory holding audio registers between 0xFF06 and 0xFF3F inclusive.
