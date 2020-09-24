@@ -22,14 +22,25 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <string.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
+#include <string.h>
 
-#ifdef SOUND_SDL2
-#include <SDL2/SDL.h>
+#if defined(SOUND_SDL2) && defined(SOUND_FILE)
+# error Only either SOUND_SDL2 or SOUND_FILE should be defined.
+#endif
+
+#if !defined(SOUND_SDL2) && !defined(SOUND_FILE)
+# warning No audio output will be enabled.
+# define SOUND_NONE
+#endif
+
+#if defined(SOUND_SDL2)
+# include <SDL2/SDL.h>
+#elif defined(SOUND_FILE)
+# define DR_WAV_IMPLEMENTATION
+# include "dr_wav.h"
 #endif
 
 #include "minigbs_apu.h"
@@ -59,6 +70,17 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+#ifdef SOUND_FILE
+    drwav_data_format format;
+    drwav wav;
+    format.container = drwav_container_riff;
+    format.format = DR_WAVE_FORMAT_IEEE_FLOAT;
+    format.channels = 2;
+    format.sampleRate = AUDIO_SAMPLE_RATE;
+    format.bitsPerSample = 32;
+    drwav_init_file_write(&wav, "recording.wav", &format, NULL);
+#endif
+
 	if(strcmp(argv[1], "-") == 0)
 	{
 		f = stdin;
@@ -68,9 +90,8 @@ int main(int argc, char *argv[])
 		f = fopen(argv[1], "rb");
 		if(f == NULL)
 		{
-			const char *errstr = strerror(errno);
 			fprintf(stderr, "Unable to open input file: %s\n",
-				errstr);
+				strerror(errno));
 			goto err;
 		}
 	}
@@ -115,10 +136,6 @@ int main(int argc, char *argv[])
 
 	fflush(stdout);
 
-#ifdef SOUND_FILE
-	FILE *wav_out = fopen("out.raw", "wb");
-#endif
-
 	while(running)
 	{
 #ifdef SOUND_NONE
@@ -129,7 +146,7 @@ int main(int argc, char *argv[])
 #elif defined(SOUND_FILE)
 		static uint8_t stream[STREAM_SIZE];
 		audio_callback(NULL, stream, sizeof(stream));
-		fwrite(stream, 1, sizeof(stream), wav_out);
+		drwav_write_raw(&wav, STREAM_SIZE, stream);
 #elif defined(SOUND_SDL2)
 		SDL_Delay(20);
 		if(SDL_QuitRequested())
@@ -137,15 +154,13 @@ int main(int argc, char *argv[])
 			fprintf(stdout, "Stopping playback.\n");
 			break;
 		}
-#else
-#error "No audio output defined"
 #endif
 	}
 
 #ifdef SOUND_SDL2
 	SDL_Quit();
 #elif defined(SOUND_FILE)
-	fclose(wav_out);
+    drwav_uninit(&wav);
 #endif
 
 	audio_deinit();
