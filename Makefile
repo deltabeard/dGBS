@@ -1,17 +1,9 @@
-ifdef VSCMD_VER
-	CC := cl
-	OBJEXT := obj
-	SOUND := FILE
-	RM := del
-	EXEOUT := /Fe
-	CFLAGS += /W3
-else
-	SOUND := SDL2
-	OBJEXT := o
-	RM := rm -f
-	EXEOUT := -o
-	CFLAGS += -std=c99 -pedantic -O2 -g3
-endif
+# Default options
+SOUND	:= SDL2
+OBJEXT	:= o
+RM	:= rm -f
+EXEOUT	:= -o
+CFLAGS	:= -std=c99 -pedantic -O2 -g3
 
 ifeq ($(SOUND),SDL2)
 	CFLAGS += -D SOUND_SDL2 $(shell sdl2-config --cflags)
@@ -36,4 +28,4 @@ dgbs_player: $(OBJS)
 
 clean:
 	$(RM) $(OBJS)
-	$(RM) ./dgbs_player ./dgbs_player.exe
+	$(RM) dgbs_player dgbs_player.exe
